@@ -1,0 +1,57 @@
+#! /usr/bin/python2
+
+import BaseHTTPServer
+import json
+
+systems = { }
+
+class handler(BaseHTTPServer.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/r/insights/":
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write("lub-dup")
+        elif self.path.endswith("/static/core/insights-core.egg"):
+            self.send_response(304)
+            self.end_headers()
+        elif self.path.endswith("/static/uploader.v2.json"):
+            # This is not a valid response and will cause the client
+            # to fall back the builtin rules.
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write("{ }\n")
+        elif "/systems/" in self.path:
+            machine_id = self.path.split("/")[-1].decode()
+            print(machine_id, systems)
+            self.send_response(200)
+            self.end_headers()
+            if machine_id in systems:
+                self.wfile.write(json.dumps(systems[machine_id]) + "\n")
+            else:
+                self.wfile.write("{ }\n")
+        else:
+            self.send_response(404)
+
+    def do_POST(self):
+        len = int(self.headers.getheader('content-length', 0))
+        data = self.rfile.read(len)
+        if self.path.endswith("/systems"):
+            s = json.loads(data)
+            s["unregistered_at"] = None
+            s["account_number"] = "123456"
+            print(s)
+            systems[s["machine_id"]] = s
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(data)
+        elif "/uploads/" in self.path:
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write("{ }\n")
+        else:
+            self.send_response(404)
+
+def insights_server(port):
+    BaseHTTPServer.HTTPServer(('', port), handler).serve_forever()
+
+insights_server(8888)
